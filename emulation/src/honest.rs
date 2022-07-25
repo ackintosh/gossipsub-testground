@@ -8,6 +8,7 @@ use libp2p::Swarm;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use std::time::Duration;
+use prometheus_client::registry::Registry;
 use testground::client::Client;
 use tokio::time::interval;
 
@@ -20,7 +21,8 @@ pub(crate) async fn run(
     // ////////////////////////////////////////////////////////////////////////
     // Start libp2p
     // ////////////////////////////////////////////////////////////////////////
-    let mut swarm = build_swarm(keypair);
+    let mut registry = Registry::default().sub_registry_with_prefix("gossipsub");
+    let mut swarm = build_swarm(keypair, &mut registry);
 
     swarm
         .listen_on(instance_info.multiaddr.clone())

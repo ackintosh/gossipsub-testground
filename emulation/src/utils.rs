@@ -18,6 +18,8 @@ use serde::Serialize;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::time::Duration;
+use libp2p::gossipsub::metrics::Config;
+use prometheus_client::registry::Registry;
 use testground::client::Client;
 
 // States for `barrier()`
@@ -56,7 +58,7 @@ pub(crate) async fn publish_and_collect<T: Serialize + DeserializeOwned>(
     Ok(vec)
 }
 
-pub(crate) fn build_swarm(keypair: Keypair) -> Swarm<Gossipsub> {
+pub(crate) fn build_swarm(keypair: Keypair, registry: &mut Registry) -> Swarm<Gossipsub> {
     // Build a Gossipsub network behaviour.
     let gossipsub_config = GossipsubConfigBuilder::default()
         .prune_backoff(Duration::from_secs(PRUNE_BACKOFF))
@@ -66,7 +68,7 @@ pub(crate) fn build_swarm(keypair: Keypair) -> Swarm<Gossipsub> {
     let gossipsub = Gossipsub::new_with_subscription_filter_and_transform(
         MessageAuthenticity::Signed(keypair.clone()),
         gossipsub_config,
-        None,
+        Some((registry, Config::default())),
         AllowAllSubscriptionFilter {},
         IdentityTransform {},
     )
