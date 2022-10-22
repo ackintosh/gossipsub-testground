@@ -3063,6 +3063,7 @@ checksum = "2fd0db749597d91ff862fd1d55ea87f7855a744a8425a64695b6fca237d1dad1"
 name = "smoke"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "libp2p 0.45.1",
  "libp2p-gossipsub 0.38.1",
  "rand 0.8.5",
