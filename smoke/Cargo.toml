@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = { version = "0.4.19", default-features = false, features = ["clock"] }
 libp2p = { version = "0.45.1", default-features = false, features = ["gossipsub", "dns-tokio", "tcp-tokio", "noise", "mplex", "yamux"] }
 libp2p-gossipsub = "0.38.1"
 rand = "0.8.5"

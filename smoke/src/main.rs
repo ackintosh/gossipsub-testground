@@ -1,3 +1,4 @@
+use chrono::Local;
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::upgrade::{SelectUpgrade, Version};
 use libp2p::core::ConnectedPoint;
@@ -22,7 +23,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::collections::HashSet;
 use testground::client::Client;
-use testground::RunParameters;
+use testground::{RunParameters, WriteQuery};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,6 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let local_key = Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
     client.record_message(format!("PeerId: {}", local_peer_id));
+
+    record_instance_info(&client, run_parameters.test_run.as_str(), &local_peer_id).await?;
 
     // Variables to keep track of the received events.
     let mut event_subscribed = 0;
@@ -110,10 +113,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     message_id: _,
                                     message,
                                 } => {
-                                    client.record_message(format!(
-                                        "Message: propagation_source: {}, source: {:?}",
-                                        propagation_source, message.source
-                                    ));
+                                    record_message_propagation(
+                                        &client,
+                                        run_parameters.test_run.as_str(),
+                                        propagation_source.to_string(),
+                                        local_peer_id.to_string(),
+                                        message.source.unwrap().to_string(),
+                                    )
+                                    .await?;
 
                                     if !event_message.insert(message.source.expect("Source peer id")) {
                                         client
@@ -240,10 +247,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         message_id: _,
                         message,
                     } => {
-                        client.record_message(format!(
-                            "Message: propagation_source: {}, source: {:?}",
-                            propagation_source, message.source
-                        ));
+                        record_message_propagation(
+                            &client,
+                            run_parameters.test_run.as_str(),
+                            propagation_source.to_string(),
+                            local_peer_id.to_string(),
+                            message.source.unwrap().to_string(),
+                        )
+                        .await?;
 
                         if !event_message.insert(message.source.expect("Source peer id")) {
                             client
@@ -323,4 +334,49 @@ async fn publish_and_collect<T: Serialize + DeserializeOwned>(
     }
 
     Ok(vec)
+}
+
+/// Record instance info to InfluxDB for visualizing on Grafana.
+async fn record_instance_info(
+    client: &Client,
+    run_id: &str,
+    local_peer_id: &PeerId,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // For the detail of `node` parameters see:
+    // https://grafana.com/docs/grafana/latest/panels-visualizations/visualizations/node-graph/#node-parameters
+    Ok(client
+        .record_metric(
+            WriteQuery::new(Local::now().into(), "nodes")
+                .add_tag("run_id", run_id)
+                .add_field("id", local_peer_id.to_string())
+                .add_field("title", local_peer_id.to_string()),
+        )
+        .await?)
+}
+
+/// Record message propagation to InfluxDB for visualizing on Grafana.
+async fn record_message_propagation(
+    client: &Client,
+    run_id: &str,
+    source: String,
+    target: String,
+    publisher: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    client.record_message(format!(
+        "Message: propagation_source: {}, source: {}",
+        source, publisher
+    ));
+
+    // For the detail of `edges` parameters see:
+    // https://grafana.com/docs/grafana/latest/panels-visualizations/visualizations/node-graph/#edge-parameters
+    Ok(client
+        .record_metric(
+            WriteQuery::new(Local::now().into(), "edges")
+                .add_tag("run_id", run_id)
+                .add_field("id", rand::random::<u32>().to_string())
+                .add_field("source", source)
+                .add_field("target", target)
+                .add_field("publisher_id", publisher),
+        )
+        .await?)
 }

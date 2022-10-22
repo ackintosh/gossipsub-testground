@@ -1,0 +1,132 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "ds_influxdb"
+      },
+      "gridPos": {
+        "h": 42,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "pluginVersion": "9.2.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "ds_influxdb"
+          },
+          "key": "Q-d2cbb538-083e-4e96-8752-62bc29ea6a83-0",
+          "query": "select * from nodes where run_id = '${run_id:text}'",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "ds_influxdb"
+          },
+          "hide": false,
+          "query": "select * from edges where run_id = '${run_id:text}' and publisher_id = '${publisher_id:text}'",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "table"
+        }
+      ],
+      "title": "Message Propagation",
+      "type": "nodeGraph"
+    }
+  ],
+  "schemaVersion": 37,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "name": "run_id",
+        "options": [
+          {
+            "selected": true,
+            "text": "cd9o03r4lvk789ig6t20",
+            "value": "cd9o03r4lvk789ig6t20"
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "isNone": true,
+          "selected": false,
+          "text": "None",
+          "value": ""
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "ds_influxdb"
+        },
+        "definition": "SELECT id FROM \"nodes\" WHERE \"run_id\" = '${run_id:text}' ",
+        "description": "Peer ID of the publisher of the message you want to trace",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "publisher_id",
+        "options": [],
+        "query": "SELECT id FROM \"nodes\" WHERE \"run_id\" = '${run_id:text}' ",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Message Propagations",
+  "uid": "jG4zFQSVz",
+  "version": 3,
+  "weekStart": ""
+}

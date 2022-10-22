@@ -9,6 +9,7 @@ services:
       - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
       - ./emulation/dashboards:/var/lib/grafana/dashboards/emulation
+      - ./smoke/dashboards:/var/lib/grafana/dashboards/smoke
 
 networks:
   # Connect containers to `testground-control` to access Testground-supplied containers.
