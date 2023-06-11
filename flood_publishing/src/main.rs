@@ -22,6 +22,23 @@ pub(crate) const BARRIER_LIBP2P_READY: &str = "Started libp2p";
 pub(crate) const BARRIER_TOPOLOGY_READY: &str = "Topology generated";
 pub(crate) const BARRIER_SUBSCRIBED: &str = "Subscribed";
 
+pub(crate) enum TransportManifest {
+    Tcp,
+    Quic,
+}
+
+impl FromStr for TransportManifest {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "tcp" => Ok(TransportManifest::Tcp),
+            "quic" => Ok(TransportManifest::Quic),
+            s => Err(format!("Invalid transport: {s}")),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(env_filter) = tracing_subscriber::EnvFilter::try_from_default_env() {
@@ -42,6 +59,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let message_size = get_param::<usize>("message_size", &test_instance_params)?;
     // Network config
     let bandwidth = get_param::<u64>("bandwidth", &test_instance_params)?;
+    // Transport config
+    let transport = get_param::<TransportManifest>("transport", &test_instance_params)?;
 
     // /////////////////////////////////////////////////////////////////////////////////////////////
     // Configure network
@@ -85,14 +104,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let keypair = Keypair::generate_ed25519();
     let peer_id = PeerId::from(keypair.public());
     let multiaddr = {
-        let mut multiaddr = Multiaddr::from(
+        let multiaddr = Multiaddr::from(
             client
                 .run_parameters()
                 .data_network_ip()?
                 .expect("Should have an IP address for the data network"),
         );
-        multiaddr.push(Protocol::Tcp(9000));
-        multiaddr
+
+        match transport {
+            TransportManifest::Tcp => multiaddr.with(Protocol::Tcp(9000)),
+            TransportManifest::Quic => multiaddr.with(Protocol::Udp(9000)).with(Protocol::QuicV1),
+        }
     };
 
     let participants = participants(
@@ -115,6 +137,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         is_publisher,
         (peer_id, multiaddr),
         participants,
+        transport,
     );
 
     network.start_libp2p().await;

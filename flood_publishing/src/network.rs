@@ -1,11 +1,12 @@
+use crate::TransportManifest;
 use libp2p::core::muxing::StreamMuxerBox;
-use libp2p::core::upgrade::{SelectUpgrade, Version};
+use libp2p::core::upgrade::Version;
 use libp2p::dns::TokioDnsConfig;
 use libp2p::futures::StreamExt;
 use libp2p::gossipsub::AllowAllSubscriptionFilter;
 use libp2p::gossipsub::{
-    Behaviour, ConfigBuilder, IdentTopic, IdentityTransform,
-    Message as GossipsubMessage, MessageAuthenticity, MessageId, PublishError, ValidationMode,
+    Behaviour, ConfigBuilder, IdentTopic, IdentityTransform, Message as GossipsubMessage,
+    MessageAuthenticity, MessageId, PublishError, ValidationMode,
 };
 use libp2p::identity::Keypair;
 use libp2p::noise::Config as NoiseConfig;
@@ -18,7 +19,6 @@ use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
-use libp2p::core::transport::Upgrade;
 use tokio::time::interval;
 use tracing::{debug, error};
 
@@ -43,6 +43,7 @@ impl Network {
         is_publisher: bool,
         node_info: (PeerId, Multiaddr),
         participants: Vec<(PeerId, Multiaddr)>,
+        transport: TransportManifest,
     ) -> Self {
         let gossip_message_id = move |message: &GossipsubMessage| {
             MessageId::from(
@@ -84,7 +85,7 @@ impl Network {
         .expect("Valid configuration");
 
         let swarm = SwarmBuilder::with_tokio_executor(
-            libp2p_quic::tokio::Transport::new(libp2p_quic::Config::new(&keypair)).boxed(),
+            build_transport(&keypair, transport),
             gossipsub,
             PeerId::from(keypair.public()),
         )
@@ -209,18 +210,31 @@ impl Network {
 }
 
 /// Set up an encrypted TCP transport over the Mplex and Yamux protocols.
-fn build_transport(keypair: &Keypair) -> libp2p::core::transport::Boxed<(PeerId, StreamMuxerBox)> {
-    // if true {
-        libp2p_quic::tokio::Transport::new(libp2p_quic::Config::new(keypair)).boxed()
-    // } else {
-    //     let transport = TokioDnsConfig::system(TcpTransport::new(TcpConfig::default().nodelay(true)))
-    //         .expect("DNS config");
-    //
-    //     transport
-    //         .upgrade(Version::V1)
-    //         .authenticate(NoiseConfig::new(keypair).expect("NoiseConfig"))
-    //         .multiplex(YamuxConfig::default())
-    //         .timeout(Duration::from_secs(20))
-    //         .boxed()
-    // }
+fn build_transport(
+    keypair: &Keypair,
+    transport: TransportManifest,
+) -> libp2p::core::transport::Boxed<(PeerId, StreamMuxerBox)> {
+    match transport {
+        TransportManifest::Tcp => {
+            let transport =
+                TokioDnsConfig::system(TcpTransport::new(TcpConfig::default().nodelay(true)))
+                    .expect("DNS config");
+
+            transport
+                .upgrade(Version::V1)
+                .authenticate(NoiseConfig::new(keypair).expect("NoiseConfig"))
+                .multiplex(YamuxConfig::default())
+                .timeout(Duration::from_secs(20))
+                .boxed()
+        }
+        TransportManifest::Quic => {
+            let transport = TokioDnsConfig::system(
+                libp2p_quic::tokio::Transport::new(libp2p_quic::Config::new(keypair)).boxed(),
+            )
+            .expect("DNS config");
+            transport
+                .map(|(peer_id, muxer), _| (peer_id, StreamMuxerBox::new(muxer)))
+                .boxed()
+        }
+    }
 }

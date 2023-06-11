@@ -22,6 +22,6 @@ instances = { min = 3, max = 100, default = 3 }
   message_size = { type = "int", desc = "Size of messages to be published", unit = "bytes", default = 50000 }
   # Network config
   bandwidth = { type = "int", desc = "Bandwidth in MiB", unit = "MiB", default = 30 }
-  # Gossipsub config
-  flood_publish = { type = "string", desc = "The type of flood publishing: rapid / heartbeat" }
+  # Transport config
+  transport = { type = "string", desc = "The type of transport: quic / tcp", default = "quic" }
 
