@@ -2,23 +2,23 @@ use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::upgrade::{SelectUpgrade, Version};
 use libp2p::dns::TokioDnsConfig;
 use libp2p::futures::StreamExt;
-use libp2p::gossipsub::subscription_filter::AllowAllSubscriptionFilter;
+use libp2p::gossipsub::AllowAllSubscriptionFilter;
 use libp2p::gossipsub::{
-    Behaviour, ConfigBuilder, FloodPublish, IdentTopic, IdentityTransform,
+    Behaviour, ConfigBuilder, IdentTopic, IdentityTransform,
     Message as GossipsubMessage, MessageAuthenticity, MessageId, PublishError, ValidationMode,
 };
 use libp2p::identity::Keypair;
-use libp2p::mplex::MplexConfig;
-use libp2p::noise::NoiseConfig;
+use libp2p::noise::Config as NoiseConfig;
 use libp2p::swarm::{SwarmBuilder, SwarmEvent};
 use libp2p::tcp::tokio::Transport as TcpTransport;
 use libp2p::tcp::Config as TcpConfig;
-use libp2p::yamux::YamuxConfig;
+use libp2p::yamux::Config as YamuxConfig;
 use libp2p::{Multiaddr, PeerId, Swarm, Transport};
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
+use libp2p::core::transport::Upgrade;
 use tokio::time::interval;
 use tracing::{debug, error};
 
@@ -43,7 +43,6 @@ impl Network {
         is_publisher: bool,
         node_info: (PeerId, Multiaddr),
         participants: Vec<(PeerId, Multiaddr)>,
-        flood_publish: FloodPublish,
     ) -> Self {
         let gossip_message_id = move |message: &GossipsubMessage| {
             MessageId::from(
@@ -52,7 +51,7 @@ impl Network {
         };
 
         let gossipsub_config = ConfigBuilder::default()
-            .flood_publish(flood_publish)
+            .flood_publish(true)
             // Following params are set based on lighthouse.
             .max_transmit_size(10 * 1_048_576) // 10M
             .prune_backoff(Duration::from_secs(PRUNE_BACKOFF))
@@ -85,7 +84,7 @@ impl Network {
         .expect("Valid configuration");
 
         let swarm = SwarmBuilder::with_tokio_executor(
-            build_transport(&keypair),
+            libp2p_quic::tokio::Transport::new(libp2p_quic::Config::new(&keypair)).boxed(),
             gossipsub,
             PeerId::from(keypair.public()),
         )
@@ -211,20 +210,17 @@ impl Network {
 
 /// Set up an encrypted TCP transport over the Mplex and Yamux protocols.
 fn build_transport(keypair: &Keypair) -> libp2p::core::transport::Boxed<(PeerId, StreamMuxerBox)> {
-    let transport = TokioDnsConfig::system(TcpTransport::new(TcpConfig::default().nodelay(true)))
-        .expect("DNS config");
-
-    let noise_keys = libp2p::noise::Keypair::<libp2p::noise::X25519Spec>::new()
-        .into_authentic(keypair)
-        .expect("Signing libp2p-noise static DH keypair failed.");
-
-    transport
-        .upgrade(Version::V1)
-        .authenticate(NoiseConfig::xx(noise_keys).into_authenticated())
-        .multiplex(SelectUpgrade::new(
-            YamuxConfig::default(),
-            MplexConfig::default(),
-        ))
-        .timeout(Duration::from_secs(20))
-        .boxed()
+    // if true {
+        libp2p_quic::tokio::Transport::new(libp2p_quic::Config::new(keypair)).boxed()
+    // } else {
+    //     let transport = TokioDnsConfig::system(TcpTransport::new(TcpConfig::default().nodelay(true)))
+    //         .expect("DNS config");
+    //
+    //     transport
+    //         .upgrade(Version::V1)
+    //         .authenticate(NoiseConfig::new(keypair).expect("NoiseConfig"))
+    //         .multiplex(YamuxConfig::default())
+    //         .timeout(Duration::from_secs(20))
+    //         .boxed()
+    // }
 }

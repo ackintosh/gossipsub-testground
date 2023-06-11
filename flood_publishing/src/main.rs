@@ -2,7 +2,6 @@ mod network;
 
 use crate::network::Network;
 use libp2p::futures::StreamExt;
-use libp2p::gossipsub::FloodPublish;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
@@ -43,15 +42,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let message_size = get_param::<usize>("message_size", &test_instance_params)?;
     // Network config
     let bandwidth = get_param::<u64>("bandwidth", &test_instance_params)?;
-    // Gossipsub config
-    let flood_publish = match get_param::<String>("flood_publish", &test_instance_params)
-        .unwrap()
-        .as_str()
-    {
-        "rapid" => FloodPublish::Rapid,
-        "heartbeat" => FloodPublish::Heartbeat(0),
-        _ => panic!("Unknown flood publish type"),
-    };
 
     // /////////////////////////////////////////////////////////////////////////////////////////////
     // Configure network
@@ -125,7 +115,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         is_publisher,
         (peer_id, multiaddr),
         participants,
-        flood_publish,
     );
 
     network.start_libp2p().await;
